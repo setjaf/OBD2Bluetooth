@@ -1,4 +1,4 @@
-package com.example.andorid.obd2bluetooth;
+    package com.example.andorid.obd2bluetooth;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -19,7 +19,8 @@ public class BluetoothService {
     private static final String NAME = "Verifacil";
 
     // UUID para la aplicación
-    private static final UUID VF_UUID = UUID.fromString("b545a148-8f76-11eb-8dcd-0242ac130003");
+    private static final UUID VF_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+//    private static final UUID VF_UUID = UUID.fromString("b545a148-8f76-11eb-8dcd-0242ac130003");
 
     private final BluetoothAdapter mAdapter;
     private final Handler mHandler;
@@ -34,7 +35,7 @@ public class BluetoothService {
 
     /**
      *
-     * Constructor. Prepara un nuevo BluettothService
+     * Constructor. Prepara un nuevo BluetoothService
      *
      * @param context El UI Context Activity
      * @param handler Un manejador para enviar mensajes devuelta al UI Activity
@@ -268,11 +269,31 @@ public class BluetoothService {
             // Keep listening to the InputStream while connected
             while (true) {
                 try {
-                    // Read from the InputStream
+                    byte b = 0;
+                    StringBuilder res = new StringBuilder();
+
+                    // read until '>' arrives OR end of stream reached
+                    char c;
+                    // -1 if the end of the stream is reached
+                    while (((b = (byte) mmInStream.read()) > -1)) {
+                        c = (char) b;
+                        if (c == '>') // read until '>' arrives
+                        {
+                            break;
+                        }
+                        res.append(c);
+                    }
+
+                    mHandler.obtainMessage(MainActivity.MESSAGE_READ, res).sendToTarget();
+
+                    /*// Read from the InputStream
                     bytes = mmInStream.read(buffer);
                     // Send the obtained bytes to the UI Activity
                     mHandler.obtainMessage(MainActivity.MESSAGE_READ, bytes, -1, buffer)
-                            .sendToTarget();
+                            .sendToTarget();*/
+
+
+
                 } catch (IOException e) {
                     connectionLost();
                     break;

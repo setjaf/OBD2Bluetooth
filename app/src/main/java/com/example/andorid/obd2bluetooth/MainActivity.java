@@ -14,8 +14,14 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
@@ -40,6 +46,12 @@ public class MainActivity extends AppCompatActivity {
     public static final String DEVICE_NAME = "device_name";
     public static final String TOAST = "toast";
 
+    private EditText mOutEditText;
+    private Button mSendButton;
+
+    // String buffer for outgoing messages
+    private StringBuffer mOutStringBuffer;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -56,12 +68,13 @@ public class MainActivity extends AppCompatActivity {
         mMessageReceived = new ArrayAdapter<String>(this,R.layout.device_name);
         ListView ListMessageReceived = (ListView) findViewById(R.id.messageReceived);
         ListMessageReceived.setAdapter(mMessageReceived);
+        setupBTService();
     }
 
     @Override
     protected void onStart() {
         super.onStart();
-        mBTService = new BluetoothService(this, mHandler);
+//        mBTService = new BluetoothService(this, mHandler);
         // Verficamos que se tengan los permisos necesarios en el dispositivo
         if (ContextCompat.checkSelfPermission(
                 this, Manifest.permission.ACCESS_FINE_LOCATION) ==
@@ -82,8 +95,7 @@ public class MainActivity extends AppCompatActivity {
                 // Se registra el Intent esperando una respuesta
                 startActivityForResult(intent, REQUEST_CONNECT_DEVICE);
             }else{
-
-                sendMessage("hola, estoy probando la conexión");
+                Toast.makeText(this,"Ya estás conectado a un dispositivo",Toast.LENGTH_LONG).show();
             }
         }else {
             // Si no se cuenta con los permisos es necesario que se solicite al usuario los permisos necesarios
@@ -100,18 +112,19 @@ public class MainActivity extends AppCompatActivity {
     private void sendMessage(String message) {
 
         // Check that we're actually connected before trying anything
-        if (mBTService.getState() != BluetoothService.STATE_CONNECTED) {
+            if (mBTService.getState() != BluetoothService.STATE_CONNECTED) {
             Toast.makeText(this, "You are not connected", Toast.LENGTH_SHORT).show();
             return;
         }
         // Check that there's actually something to send
         if (message.length() > 0) {
             // Get the message bytes and tell the BluetoothChatService to write
+            message = message+"\r";
             byte[] send = message.getBytes();
             mBTService.write(send);
             // Reset out string buffer to zero and clear the edit text field
-//            mOutStringBuffer.setLength(0);
-//            mOutEditText.setText(mOutStringBuffer);
+            mOutStringBuffer.setLength(0);
+            mOutEditText.setText(mOutStringBuffer);
         }
     }
 
@@ -186,6 +199,8 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+
+
     // The Handler that gets information back from the BluetoothChatService
     private final Handler mHandler = new Handler() {
         @Override
@@ -199,12 +214,12 @@ public class MainActivity extends AppCompatActivity {
                     //messageList.add(new androidRecyclerView.Message(counter++, writeMessage, "Me"));
                     break;
                 case MESSAGE_READ:
-                    byte[] readBuf = (byte[]) msg.obj;
+                   /* byte[] readBuf = (byte[]) msg.obj;
                     // construct a string from the valid bytes in the buffer
-                    String readMessage = new String(readBuf, 0, msg.arg1);
+                    String readMessage = new String(readBuf, 0, msg.arg1);*/
                     //mAdapter.notifyDataSetChanged();
                     //messageList.add(new androidRecyclerView.Message(counter++, readMessage, mConnectedDeviceName));
-                    mMessageReceived.add(readMessage);
+                    mMessageReceived.add(msg.obj.toString());
                     break;
                 case MESSAGE_DEVICE_NAME:
                     // save the connected device's name
@@ -219,4 +234,35 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
+
+    private TextView.OnEditorActionListener mWriteListener =
+            new TextView.OnEditorActionListener() {
+                public boolean onEditorAction(TextView view, int actionId, KeyEvent event) {
+                    // If the action is a key-up event on the return key, send the message
+                    if (actionId == EditorInfo.IME_NULL && event.getAction() == KeyEvent.ACTION_UP) {
+                        String message = view.getText().toString();
+                        sendMessage(message);
+                    }
+                    return true;
+                }
+            };
+
+    private void setupBTService() {
+        mOutEditText = (EditText) findViewById(R.id.messageText);
+        mOutEditText.setOnEditorActionListener(mWriteListener);
+        mSendButton = (Button) findViewById(R.id.sendMsgButton);
+        mSendButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                TextView view = (TextView) findViewById(R.id.messageText);
+                String message = view.getText().toString();
+                sendMessage(message);
+            }
+        });
+
+        // Initialize the BluetoothChatService to perform bluetooth connections
+        mBTService = new BluetoothService(this, mHandler);
+
+        // Initialize the buffer for outgoing messages
+        mOutStringBuffer = new StringBuffer("");
+    }
 }
